@@ -47,9 +47,48 @@ void showGraph(const vector< vector <int>>& graph, const size_t graphSize) {
 }
 
 
-size_t bruteForce(const vector< vector <int>>& graph) {
-    return 0;
-}
+class BruteForce {
+private:
+    const vector< vector <int>> graph;
+    const size_t graphSize;
+    vector <bool> visited;
+    
+public:
+    size_t minLength;
+    vector <size_t> minPath;
+    
+    BruteForce(const vector< vector <int>>& graph) : graph(graph), minLength(0), graphSize(graph.size()) {
+        for (int i = 0; i < graphSize; ++i) {
+            visited.push_back(false);
+        }
+    }
+    
+    void findMinPath(const int vert) {
+        vector<size_t> path;
+        findMinPath(vert, 0, path);
+    }
+    
+    void findMinPath(const size_t vert, const size_t curLength, vector<size_t>& curPath) {
+        bool isThereNodes = false;
+        visited[vert] = true;
+        curPath.push_back(vert);
+        
+        for (size_t i = 0; i < graphSize; ++i) {
+            if (visited[i] == false) {
+                isThereNodes = true;
+                findMinPath(i, curLength + graph[vert][i], curPath);
+            }
+        }
+        
+        if (isThereNodes == false and (curLength < minLength or minLength == 0)) {
+            minLength = curLength;
+            minPath = curPath;
+        }
+        
+        curPath.pop_back();
+        visited[vert] = false;
+    }
+};
 
 
 size_t ACO(const vector< vector <int>>& graph) {
@@ -67,25 +106,45 @@ int main(int argc, const char * argv[]) {
             size_t start;
             size_t end;
             size_t pathLength;
+            vector <size_t> path;
             
             vector< vector <int>> graph;
             int graphSize;
+            int vert;
             
             cout << "Input graph size: ";
             cin >> graphSize;
             
-            if (graphSize < 0) {
+            if (graphSize <= 0) {
                 cout << "Error size";
+                return 1;
+            }
+            
+            cout << "Input initial vertex: ";
+            cin >> vert;
+            
+            if (vert < 0 or vert > graphSize) {
+                cout << "Error vert";
                 return 1;
             }
             
             getRandomGraph(graph, graphSize);
             showGraph(graph, graphSize);
             
+            BruteForce algorithm(graph);
+            
             start = __rdtsc();
-            pathLength = bruteForce(graph);
+            algorithm.findMinPath(vert);
             end = __rdtsc();
-            cout << "Brute force: " << pathLength << ", time: " << (end - start) << endl;
+            
+            pathLength = algorithm.minLength;
+            path = algorithm.minPath;
+            
+            cout << "Brute force: [";
+            for (int i = 0; i < graphSize; ++i) {
+                cout << " " << path[i];
+            }
+            cout << " ], " << pathLength << ", time: " << (end - start) << endl;
             
             start = __rdtsc();
             pathLength = ACO(graph);
