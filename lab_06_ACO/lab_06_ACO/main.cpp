@@ -236,6 +236,11 @@ private:
                 ants[j].visitCity(nextCity, i + 1, distance);
             }
         }
+        
+        for (size_t j = 0; j < antsCount; ++j) {
+            const int distToInitialCity = distGraph[ants[j].path[ants[j].path.size() - 1]][ants[j].path[0]];
+            ants[j].pathLength += distToInitialCity;
+        }
     }
     
     size_t getNextCity(const Ant& ant, const size_t curCity) {
@@ -363,7 +368,7 @@ int main(int argc, const char * argv[]) {
             }
             cout << " ], " << pathLength << ", time: " << (end - start) << endl;
             
-            ACO algorithmACO(graph, 0.5, 0.5, 100);
+            ACO algorithmACO(graph, 0.5, 0.5, 1);
             start = __rdtsc();
             algorithmACO.execute();
             end = __rdtsc();
