@@ -53,23 +53,27 @@ private:
     const vector <vector <int>> graph;
     const size_t graphSize;
     vector <bool> visited;
+    size_t initialVert = 0;
     
 public:
-    size_t minLength;
+    size_t minLength = 0;
     vector <size_t> minPath;
     
-    BruteForce(const vector<vector <int>>& graph) : graph(graph), minLength(0), graphSize(graph.size()) {
+    BruteForce(const vector<vector <int>>& graph) : graph(graph), graphSize(graph.size()) {
         for (int i = 0; i < graphSize; ++i) {
             visited.push_back(false);
         }
     }
     
-    void findMinPath(const int vert) {
+    void execute() {
         vector<size_t> path;
-        findMinPath(vert, 0, path);
+        for (initialVert = 0; initialVert < graphSize; ++initialVert) {
+            execute(initialVert, 0, path);
+        }
     }
     
-    void findMinPath(const size_t vert, const size_t curLength, vector<size_t>& curPath) {
+private:
+    void execute(const size_t vert, size_t curLength, vector<size_t>& curPath) {
         bool isThereNodes = false;
         visited[vert] = true;
         curPath.push_back(vert);
@@ -77,13 +81,16 @@ public:
         for (size_t i = 0; i < graphSize; ++i) {
             if (visited[i] == false) {
                 isThereNodes = true;
-                findMinPath(i, curLength + graph[vert][i], curPath);
+                execute(i, curLength + graph[vert][i], curPath);
             }
         }
         
-        if (isThereNodes == false and (curLength < minLength or minLength == 0)) {
-            minLength = curLength;
-            minPath = curPath;
+        if (isThereNodes == false) {
+            curLength += graph[vert][initialVert];
+            if (curLength < minLength or minLength == 0) {
+                minLength = curLength;
+                minPath = curPath;
+            }
         }
         
         curPath.pop_back();
@@ -229,6 +236,11 @@ private:
                 ants[j].visitCity(nextCity, i + 1, distance);
             }
         }
+        
+        for (size_t j = 0; j < antsCount; ++j) {
+            const int distToInitialCity = distGraph[ants[j].path[ants[j].path.size() - 1]][ants[j].path[0]];
+            ants[j].pathLength += distToInitialCity;
+        }
     }
     
     size_t getNextCity(const Ant& ant, const size_t curCity) {
@@ -329,7 +341,6 @@ int main(int argc, const char * argv[]) {
             
             vector <vector <int>> graph;
             int graphSize;
-            int vert;
             
             cout << "Input graph size: ";
             cin >> graphSize;
@@ -339,23 +350,13 @@ int main(int argc, const char * argv[]) {
                 return 1;
             }
             
-//            cout << "Input initial vertex: ";
-//            cin >> vert;
-//
-//            if (vert < 0 or vert > graphSize) {
-//                cout << "Error vert";
-//                return 1;
-//            }
-            
-            vert = 0;
-            
             getRandomGraph(graph, graphSize);
             showGraph(graph, graphSize);
             
             BruteForce algorithm(graph);
             
             start = __rdtsc();
-            algorithm.findMinPath(vert);
+            algorithm.execute();
             end = __rdtsc();
             
             pathLength = algorithm.minLength;
@@ -367,7 +368,7 @@ int main(int argc, const char * argv[]) {
             }
             cout << " ], " << pathLength << ", time: " << (end - start) << endl;
             
-            ACO algorithmACO(graph, 0.5, 0.5, 100);
+            ACO algorithmACO(graph, 0.5, 0.5, 1);
             start = __rdtsc();
             algorithmACO.execute();
             end = __rdtsc();
