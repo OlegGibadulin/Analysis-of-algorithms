@@ -8,11 +8,12 @@
 
 #include <iostream>
 #include <vector>
+#include <math.h>
 
 using namespace std;
 
 
-void getRandomGraph(vector< vector <int>>& graph, const size_t graphSize) {
+void getRandomGraph(vector <vector <int>>& graph, const size_t graphSize) {
     for (int i = 0; i < graphSize; ++i) {
         vector<int> line;
         for (int j = 0; j < graphSize; ++j) {
@@ -28,7 +29,7 @@ void getRandomGraph(vector< vector <int>>& graph, const size_t graphSize) {
 }
 
 
-void showGraph(const vector< vector <int>>& graph, const size_t graphSize) {
+void showGraph(const vector <vector <int>>& graph, const size_t graphSize) {
     if (graph.size() == 0)
     {
         cout << "This graph is empty" << endl;
@@ -49,7 +50,7 @@ void showGraph(const vector< vector <int>>& graph, const size_t graphSize) {
 
 class BruteForce {
 private:
-    const vector< vector <int>> graph;
+    const vector <vector <int>> graph;
     const size_t graphSize;
     vector <bool> visited;
     
@@ -57,7 +58,7 @@ public:
     size_t minLength;
     vector <size_t> minPath;
     
-    BruteForce(const vector< vector <int>>& graph) : graph(graph), minLength(0), graphSize(graph.size()) {
+    BruteForce(const vector<vector <int>>& graph) : graph(graph), minLength(0), graphSize(graph.size()) {
         for (int i = 0; i < graphSize; ++i) {
             visited.push_back(false);
         }
@@ -91,9 +92,227 @@ public:
 };
 
 
-size_t ACO(const vector< vector <int>>& graph) {
-    return 0;
-}
+class Ant {
+public:
+    size_t pathLength;
+    vector <bool> visited;
+    vector <size_t> path;
+    
+    Ant(const size_t graphSize) : pathLength(0) {
+        for (size_t i = 0; i < graphSize; ++i) {
+            path.push_back(0);
+            visited.push_back(false);
+        }
+    }
+    
+    void visitCity(const size_t city, const size_t curPathLength, const size_t curPathDistance) {
+        pathLength += curPathDistance;
+        path[curPathLength] = city;
+        visited[city] = true;
+    }
+    
+    void clearVisits() {
+        for (size_t i = 0; i < visited.size(); ++i) {
+            visited[i] = false;
+        }
+    }
+    
+    void makeDefaultPath() {
+        pathLength = 0;
+        visitCity(path[path.size() - 1], 0, 0);
+    }
+    
+    bool isVisited(const size_t city) const {
+        return visited[city];
+    }
+};
+
+
+class ACO {
+private:
+    const vector <vector <int>> distGraph;
+    const size_t citiesCount;
+    
+    vector <vector <double>> pherGraph;
+    vector <vector <double>> desireGraph;
+    
+    vector <Ant> ants;
+    size_t antsCount;
+    
+    vector <double> pathsProbabilities;
+    
+    double alpha = 0;
+    double rho = 0;
+    size_t tMax = 0;
+    double beta;
+    double Q = 5;
+    double antsFactor = 1;
+    double initialPherVal = 1;
+    
+public:
+    size_t minLength = 0;
+    vector <size_t> minPath;
+    
+    ACO(const vector<vector <int>>& graph, const double alpha, const double rho, const double tMax) : distGraph(graph), alpha(alpha), rho(rho), tMax(tMax), citiesCount(graph.size()) {
+        beta = 1 - alpha;
+        
+        // init pherGraph
+        for (size_t i = 0; i < citiesCount; ++i) {
+            vector<double> line;
+            for (size_t j = 0; j < citiesCount; ++j) {
+                line.push_back(initialPherVal);
+            }
+            pherGraph.push_back(line);
+        }
+        
+        // init desireGraph
+        for (size_t i = 0; i < citiesCount; ++i) {
+            vector<double> line;
+            for (size_t j = 0; j < citiesCount; ++j) {
+                if (distGraph[i][j] == 0) {
+                    line.push_back(0);
+                }
+                else {
+                    line.push_back(1.0 / distGraph[i][j]);
+                }
+            }
+            desireGraph.push_back(line);
+        }
+        
+        // init antsCount
+        antsCount = citiesCount * antsFactor;
+        for (size_t i = 0; i < antsCount; ++i) {
+            Ant ant(citiesCount);
+            ants.push_back(ant);
+        }
+        
+        // init pathsProbabilities
+        for (size_t i = 0; i < citiesCount; ++i) {
+            pathsProbabilities.push_back(0);
+        }
+    }
+    
+    void execute() {
+        initPherGraph();
+        initAnts();
+        
+        for (size_t i = 0; i < tMax; ++i) {
+            paveAntsPaths();
+            updateMinPath();
+            updatePheromones();
+            makeDefaultAnts();
+        }
+    }
+    
+private:
+    void initAnts() {
+        for (size_t i = 0; i < antsCount; ++i) {
+            ants[i].visitCity(rand() % citiesCount, 0, 0);
+        }
+    }
+    
+    void initPherGraph() {
+        for (size_t i = 0; i < citiesCount; ++i) {
+            for (size_t j = 0; j < citiesCount; ++j) {
+                pherGraph[i][j] = initialPherVal;
+            }
+        }
+    }
+    
+    void paveAntsPaths() {
+        for (size_t i = 0; i < citiesCount - 1; ++i) {
+            for (size_t j = 0; j < antsCount; ++j) {
+                const size_t curCity = ants[j].path[i];
+                const size_t nextCity = getNextCity(ants[j], curCity);
+                const int distance = distGraph[curCity][nextCity];
+                
+                ants[j].visitCity(nextCity, i + 1, distance);
+            }
+        }
+    }
+    
+    size_t getNextCity(const Ant& ant, const size_t curCity) {
+        double sumP = 0;
+        
+        for (int i = 0; i < citiesCount; ++i) {
+            sumP += pow(pherGraph[curCity][i], alpha) * pow(desireGraph[curCity][i], beta);
+        }
+        
+        for (int i = 0; i < citiesCount; ++i) {
+            if (i == curCity || ant.isVisited(i)) {
+                pathsProbabilities[i] = 0;
+            }
+            else {
+                pathsProbabilities[i] = pow(pherGraph[curCity][i], alpha) * pow(desireGraph[curCity][i], beta) / sumP;
+            }
+        }
+        
+        size_t nextCity = selectNextCity();
+        
+        return nextCity;
+    }
+    
+    void updateMinPath() {
+        for (size_t i = 0; i < antsCount; ++i) {
+            const size_t curLength = ants[i].pathLength;
+            if (curLength < minLength || minLength == 0) {
+                minLength = curLength;
+                minPath = ants[i].path;
+            }
+        }
+    }
+    
+    void updatePheromones() {
+        for (int i = 0; i < citiesCount; ++i) {
+            for (int j = 0; j < citiesCount; ++j) {
+                pherGraph[i][j] *= (1 - rho);
+            }
+        }
+        
+        for (size_t i = 0; i < antsCount; ++i) {
+            double deltaTau = Q / ants[i].pathLength;
+            for (int j = 0; j < citiesCount - 1; ++j) {
+                pherGraph[ants[i].path[j]][ants[i].path[j + 1]] += deltaTau;
+            }
+            pherGraph[ants[i].path[citiesCount - 1]][ants[i].path[0]] += deltaTau;
+        }
+    }
+    
+    void makeDefaultAnts() {
+        for (size_t i = 0; i < antsCount; ++i) {
+            ants[i].clearVisits();
+            ants[i].makeDefaultPath();
+        }
+    }
+    
+    size_t selectNextCity() {
+        double sumProbabilities = getSumProbabilities();
+        
+        double randNum = ((double) rand() / (RAND_MAX)) * sumProbabilities;
+        double total = 0;
+        size_t city = 0;
+        
+        for (size_t i = 0; i < citiesCount; ++i) {
+            total += pathsProbabilities[i];
+            if (total >= randNum) {
+                city = i;
+                break;
+            }
+        }
+        
+        return city;
+    }
+    
+    double getSumProbabilities() {
+        double sumProbabilities = 0;
+        
+        for (size_t i = 0; i < citiesCount; ++i) {
+            sumProbabilities += pathsProbabilities[i];
+        }
+        
+        return sumProbabilities;
+    }
+};
 
 
 int main(int argc, const char * argv[]) {
@@ -108,7 +327,7 @@ int main(int argc, const char * argv[]) {
             size_t pathLength;
             vector <size_t> path;
             
-            vector< vector <int>> graph;
+            vector <vector <int>> graph;
             int graphSize;
             int vert;
             
@@ -120,13 +339,15 @@ int main(int argc, const char * argv[]) {
                 return 1;
             }
             
-            cout << "Input initial vertex: ";
-            cin >> vert;
+//            cout << "Input initial vertex: ";
+//            cin >> vert;
+//
+//            if (vert < 0 or vert > graphSize) {
+//                cout << "Error vert";
+//                return 1;
+//            }
             
-            if (vert < 0 or vert > graphSize) {
-                cout << "Error vert";
-                return 1;
-            }
+            vert = 0;
             
             getRandomGraph(graph, graphSize);
             showGraph(graph, graphSize);
@@ -146,17 +367,24 @@ int main(int argc, const char * argv[]) {
             }
             cout << " ], " << pathLength << ", time: " << (end - start) << endl;
             
+            ACO algorithmACO(graph, 0.5, 0.5, 100);
             start = __rdtsc();
-            pathLength = ACO(graph);
+            algorithmACO.execute();
             end = __rdtsc();
-            cout << "ACO: " << pathLength << ", time: " << (end - start) << endl;
+            pathLength = algorithmACO.minLength;
+            path = algorithmACO.minPath;
+            cout << "ACO: [";
+            for (int i = 0; i < graphSize; ++i) {
+                cout << " " << path[i];
+            }
+            cout << " ], " << pathLength << ", time: " << (end - start) << endl;
             
             cout << endl;
         }
         else if (key == 2) {
             size_t repeatCount = 10;
             for (int j = 1; j < 10; j += 1) {
-                vector< vector <int>> graph;
+                vector <vector <int>> graph;
                 size_t graphSize = j;
                 
                 getRandomGraph(graph, graphSize);
