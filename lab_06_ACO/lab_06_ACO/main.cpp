@@ -148,10 +148,10 @@ private:
     
     vector <double> pathsProbabilities;
     
-    double alpha = 0;
-    double rho = 0;
-    size_t tMax = 0;
-    double beta;
+    double alpha = 0.5;
+    double rho = 0.5;
+    size_t tMax = 100;
+    double beta = 1 - alpha;
     double Q = 5;
     double antsFactor = 1;
     double initialPherVal = 1;
@@ -160,9 +160,7 @@ public:
     size_t minLength = 0;
     vector <size_t> minPath;
     
-    ACO(const vector<vector <int>>& graph, const double alpha, const double rho, const double tMax) : distGraph(graph), alpha(alpha), rho(rho), tMax(tMax), citiesCount(graph.size()) {
-        beta = 1 - alpha;
-        
+    ACO(const vector<vector <int>>& graph) : distGraph(graph), citiesCount(graph.size()) {
         // init pherGraph
         for (size_t i = 0; i < citiesCount; ++i) {
             vector<double> line;
@@ -209,6 +207,13 @@ public:
             updatePheromones();
             makeDefaultAnts();
         }
+    }
+    
+    void changeParams(double alpha, double rho, size_t tMax) {
+        this->alpha = alpha;
+        this->beta = 1 - alpha;
+        this->rho = rho;
+        this->tMax = tMax;
     }
     
 private:
@@ -354,7 +359,6 @@ int main(int argc, const char * argv[]) {
             showGraph(graph, graphSize);
             
             BruteForce algorithm(graph);
-            
             start = __rdtsc();
             algorithm.execute();
             end = __rdtsc();
@@ -368,7 +372,7 @@ int main(int argc, const char * argv[]) {
             }
             cout << " ], " << pathLength << ", time: " << (end - start) << endl;
             
-            ACO algorithmACO(graph, 0.5, 0.5, 1);
+            ACO algorithmACO(graph);
             start = __rdtsc();
             algorithmACO.execute();
             end = __rdtsc();
@@ -383,25 +387,36 @@ int main(int argc, const char * argv[]) {
             cout << endl;
         }
         else if (key == 2) {
-            size_t repeatCount = 10;
-            for (int j = 1; j < 10; j += 1) {
-                vector <vector <int>> graph;
-                size_t graphSize = j;
-                
-                getRandomGraph(graph, graphSize);
-                
-                cout << j << endl;
-                
-                size_t start;
-                size_t end;
-                
-                start = __rdtsc();
-                for (int i = 0; i < repeatCount; ++i) {
-                    ;
+            vector <vector <int>> graph;
+            int graphSize = 10;
+            
+            size_t pathLengthBF;
+            vector <size_t> pathBF;
+            size_t pathLengthACO;
+            vector <size_t> pathACO;
+            
+            getRandomGraph(graph, graphSize);
+            showGraph(graph, graphSize);
+            
+            BruteForce algorithm(graph);
+            algorithm.execute();
+            pathLengthBF = algorithm.minLength;
+            pathBF = algorithm.minPath;
+            
+            ACO algorithmACO(graph);
+            
+            for (double alpha = 0; alpha < 1; alpha += 0.1) {
+                for (double rho = 0; rho < 1; rho += 0.1) {
+                    for (size_t t = 0; t < 500; t += 100) {
+                        algorithmACO.changeParams(alpha, rho, t);
+                        algorithmACO.execute();
+                        
+                        pathLengthACO = algorithmACO.minLength;
+                        pathACO = algorithmACO.minPath;
+                        
+                        cout << pathLengthBF << " " << pathLengthACO << endl;
+                    }
                 }
-                end = __rdtsc();
-                
-                cout << " time: " << (end - start) / repeatCount  << endl;
             }
         }
         else if (key == 0) {
