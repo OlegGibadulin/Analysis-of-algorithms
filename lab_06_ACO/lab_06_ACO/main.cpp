@@ -9,6 +9,7 @@
 #include <iostream>
 #include <vector>
 #include <math.h>
+#include <fstream>
 
 using namespace std;
 
@@ -122,6 +123,7 @@ public:
         for (size_t i = 0; i < visited.size(); ++i) {
             visited[i] = false;
         }
+        pathLength = 0;
     }
     
     void makeDefaultPath() {
@@ -198,6 +200,7 @@ public:
     }
     
     void execute() {
+        makeDefaultState();
         initPherGraph();
         initAnts();
         
@@ -217,8 +220,14 @@ public:
     }
     
 private:
+    void makeDefaultState() {
+        minLength = 0;
+        minPath.clear();
+    }
+    
     void initAnts() {
         for (size_t i = 0; i < antsCount; ++i) {
+            ants[i].clearVisits();
             ants[i].visitCity(rand() % citiesCount, 0, 0);
         }
     }
@@ -405,19 +414,35 @@ int main(int argc, const char * argv[]) {
             
             ACO algorithmACO(graph);
             
+            ofstream resFile;
+            resFile.open("ACO_test.xlsx");
+            
+            size_t start;
+            size_t end;
+            size_t repeatTimes = 1;
+            
             for (double alpha = 0; alpha < 1; alpha += 0.1) {
                 for (double rho = 0; rho < 1; rho += 0.1) {
-                    for (size_t t = 0; t < 500; t += 100) {
+                    for (size_t t = 100; t < 500; t += 100) {
                         algorithmACO.changeParams(alpha, rho, t);
-                        algorithmACO.execute();
+                        
+                        start = __rdtsc();
+                        for (size_t i = 0; i < repeatTimes; ++i) {
+                            algorithmACO.execute();
+                        }
+                        end = __rdtsc();
                         
                         pathLengthACO = algorithmACO.minLength;
                         pathACO = algorithmACO.minPath;
                         
-                        cout << pathLengthBF << " " << pathLengthACO << endl;
+                        // cout << pathLengthBF << " " << pathLengthACO << endl;
+                        
+                        resFile << alpha << "," << rho << "," << t << "," << pathLengthACO << "," << (end - start) / repeatTimes << endl;
                     }
                 }
             }
+            
+            resFile.close();
         }
         else if (key == 0) {
             break;
