@@ -37,49 +37,15 @@ private:
     size_t queuesCount;
     size_t averegeTime;
     
-    size_t getRandDeltaTime() {
-        return rand() % averegeTime;
-    }
-    
-    void doObjectWork(Object& curObject, size_t queueNum) {
-        size_t deltaTime = getRandDeltaTime();
-        
-        size_t start = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-        this_thread::sleep_for(chrono::milliseconds(averegeTime + deltaTime));
-        size_t end = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-        
-        curObject.queueTimeBegin[queueNum] = start;
-        curObject.queueTimeEnd[queueNum] = end;
-    }
-    
 public:
     Algorithm(size_t elementsCount, size_t queuesCount, size_t milliseconds) : elementsCount(elementsCount), queuesCount(queuesCount), averegeTime(milliseconds) {}
     
     void linearRealization() {
-        queue <Object> generatorObjects;
-        
-        for (size_t i = 0; i < elementsCount; ++i) {
-            generatorObjects.push(Object(queuesCount, i + 1));
-        }
-        
-        vector <Object> poolObjects;
-        
-        while (poolObjects.size() != elementsCount) {
-            Object curObject = generatorObjects.front();
-            generatorObjects.pop();
-            
-            for (int i = 0; i < queuesCount; ++i) {
-                doObjectWork(curObject, i);
-            }
-            
-            poolObjects.push_back(curObject);
-        }
-        
-        // poolObjects into file
+        ;
     }
     
     void conveyor() {
-        this_thread::sleep_for(chrono::milliseconds(500));
+        ;
     }
 };
 
