@@ -412,6 +412,8 @@ int main(int argc, const char * argv[]) {
             pathLengthBF = algorithm.minLength;
             pathBF = algorithm.minPath;
             
+            cout << pathLengthBF << endl;
+            
             ACO algorithmACO(graph);
             
             ofstream resFile;
@@ -421,9 +423,11 @@ int main(int argc, const char * argv[]) {
             size_t end;
             size_t repeatTimes = 1;
             
-            for (double alpha = 0; alpha < 1; alpha += 0.1) {
-                for (double rho = 0; rho < 1; rho += 0.1) {
-                    for (size_t t = 100; t < 500; t += 100) {
+            for (double alpha = 0; alpha <= 1; alpha += 0.1) {
+                for (double rho = 0; rho <= 1; rho += 0.1) {
+                    for (size_t t = 100; t < 400; t += 100) {
+                        
+                        ACO algorithmACO(graph);
                         algorithmACO.changeParams(alpha, rho, t);
                         
                         start = __rdtsc();
@@ -437,7 +441,7 @@ int main(int argc, const char * argv[]) {
                         
                         // cout << pathLengthBF << " " << pathLengthACO << endl;
                         
-                        resFile << alpha << "," << rho << "," << t << "," << pathLengthACO << "," << (end - start) / repeatTimes << endl;
+                        resFile << alpha << " & " << rho << " & " << t << " & " << pathLengthACO << " \\\\" << endl;
                     }
                 }
             }
