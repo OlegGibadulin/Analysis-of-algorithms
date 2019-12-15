@@ -18,26 +18,20 @@ using namespace std;
 
 
 struct Object {
-    Object(size_t queuesCount, size_t number) : number(number) {
-        for (int i = 0; i < queuesCount; ++i) {
-            queueTimeBegin.push_back(0);
-            queueTimeEnd.push_back(0);
-        }
-    }
+    Object(size_t number) : number(number) {}
     
     size_t number;
-    
-    vector <size_t> queueTimeBegin;
-    vector <size_t> queueTimeEnd;
 };
 
 
-class LinearConveyor {
+class Conveyor {
 private:
     size_t elementsCount;
     size_t queuesCount;
     size_t averegeTime;
     ofstream resTimeFile;
+    const size_t delayTime = 1;
+    mutex fileMutex;
     
     size_t getCurTime() {
         return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
@@ -47,29 +41,27 @@ private:
         return rand() % averegeTime;
     }
     
-    void doObjectWork(Object& curObject, size_t queueNum) {
-        size_t deltaTime = getRandDeltaTime();
-        
+    void doObjectLinearWork(Object& curObject, size_t queueNum) {
         size_t start = getCurTime();
-        this_thread::sleep_for(chrono::milliseconds(averegeTime * queueNum + deltaTime));
+        resTimeFile << "Object #" << curObject.number <<  " from Queue #" << queueNum << ": START - " << start << endl;
+        
+        size_t deltaTime = getRandDeltaTime();
+        this_thread::sleep_for(chrono::milliseconds(averegeTime + deltaTime));
+        
         size_t end = getCurTime();
-        
-        curObject.queueTimeBegin[queueNum] = start;
-        curObject.queueTimeEnd[queueNum] = end;
-        
-        resTimeFile << queueNum << " " << curObject.number << " " << start << " " << " " << end << " " << end - start << endl;
+        resTimeFile << "Object #" << curObject.number <<  " from Queue #" << queueNum << ": STOP -  " << end << endl;
     }
     
 public:
-    LinearConveyor(size_t elementsCount, size_t queuesCount, size_t milliseconds) : elementsCount(elementsCount), queuesCount(queuesCount), averegeTime(milliseconds) {
-        resTimeFile.open("LinearConveyor.txt");
-    }
+    Conveyor(size_t elementsCount, size_t queuesCount, size_t milliseconds) : elementsCount(elementsCount), queuesCount(queuesCount), averegeTime(milliseconds) {}
     
-    void execute() {
+    void executeLinear() {
+        resTimeFile.open("LinearConveyor.txt");
+        
         queue <Object> objectsGenerator;
         
         for (size_t i = 0; i < elementsCount; ++i) {
-            objectsGenerator.push(Object(queuesCount, i + 1));
+            objectsGenerator.push(Object(i + 1));
         }
         
         vector <Object> objectsPool;
@@ -79,80 +71,50 @@ public:
             objectsGenerator.pop();
             
             for (size_t i = 0; i < queuesCount; ++i) {
-                doObjectWork(curObject, i);
+                doObjectLinearWork(curObject, i);
             }
             
             objectsPool.push_back(curObject);
         }
         
-        // objectsPool into file
+        resTimeFile.close();
     }
-};
-
-
-class Conveyor {
+    
 private:
-    size_t elementsCount;
-    size_t queuesCount;
-    size_t averegeTime;
-    const size_t delayTime = 1;
-    ofstream resTimeFile;
-    
-    vector <mutex> queuesMutex;
-    vector <queue <Object> > queues;
-    
-    size_t getCurTime() {
-        return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
-    }
-    
-    size_t getRandDeltaTime() {
-        return rand() % averegeTime;
-    }
-    
-    void doObjectWork(Object& curObject, size_t queueNum) {
-        // cout << curObject.queueTimeEnd.size() << "?" << queueNum << endl;
-        queuesMutex[queueNum].lock();
-        // cout << curObject.queueTimeEnd.size() << "!" << endl;
-        
+    void doObjectParallelWork(Object curObject, queue <Object>& queue, size_t queueNum, mutex& mutex) {
         size_t deltaTime = getRandDeltaTime();
+        this_thread::sleep_for(chrono::milliseconds(averegeTime + deltaTime));
         
-        size_t start = getCurTime();
-        this_thread::sleep_for(chrono::milliseconds(averegeTime * queueNum + deltaTime));
+        mutex.lock();
+        queue.push(curObject);
+        mutex.unlock();
+        
         size_t end = getCurTime();
-        
-        resTimeFile << queueNum << " " << curObject.number << " " << start << " " << " " << end << " " << end - start << endl;
-        
-        curObject.queueTimeBegin[queueNum] = start;
-        curObject.queueTimeEnd[queueNum] = end;
-        
-        // cout << queueNum << endl;
-        
-        queuesMutex[queueNum].unlock();
+        fileMutex.lock();
+        resTimeFile << "Object #" << curObject.number <<  " from Queue #" << queueNum << ": STOP -  " << end << endl;
+        fileMutex.unlock();
     }
     
 public:
-    Conveyor(size_t elementsCount, size_t queuesCount, size_t milliseconds) : elementsCount(elementsCount), queuesCount(queuesCount), averegeTime(milliseconds) {
-        queuesMutex = vector <mutex> (queuesCount);
-        queues = vector <queue <Object> > (queuesCount);
-        
+    void executeParallel() {
         resTimeFile.open("ParallelConveyor.txt");
-    }
-    
-    void execute() {
+        
         queue <Object> objectsGenerator;
         
         for (size_t i = 0; i < elementsCount; ++i) {
-            objectsGenerator.push(Object(queuesCount, i + 1));
+            objectsGenerator.push(Object(i + 1));
         }
         
-        vector <thread> threads = vector <thread> (3);
-        vector <Object> objectsPool;
+        vector <thread> threads(3);
+        vector <queue <Object> > queues(3);
+        queue <Object> objectsPool;
+        vector <mutex> mutexes(4);
         size_t prevTime = getCurTime() - delayTime;
         
         while (objectsPool.size() != elementsCount) {
             size_t curTime = getCurTime();
             
-            if (prevTime + delayTime < curTime) {
+            if (!objectsGenerator.empty() && prevTime + delayTime < curTime) {
                 Object curObject = objectsGenerator.front();
                 objectsGenerator.pop();
                 queues[0].push(curObject);
@@ -161,30 +123,37 @@ public:
             }
             
             for (int i = 0; i < queuesCount; ++i) {
-                if (!queues[i].empty()) {
+                if (threads[i].joinable()) {
+                    threads[i].join();
+                }
+                if (!queues[i].empty() && !threads[i].joinable()) {
+                    mutexes[i].lock();
                     Object curObject = queues[i].front();
                     queues[i].pop();
-                    /*threads[i] = thread([this, &curObject, i](){
-                        Conveyor::doObjectWork(curObject, i);
-                    });*/
-                    threads[i] = thread(&Conveyor::doObjectWork, this, ref(curObject), i);
+                    mutexes[i].unlock();
                     
-                    if (objectsPool.size() != elementsCount - 1) {
-                        threads[i].detach();
-                    }
-                    else {
-                        threads[i].join();
-                    }
+                    size_t start = getCurTime();
+                    fileMutex.lock();
+                    resTimeFile << "Object #" << curObject.number <<  " from Queue #" << i << ": START - " << start << endl;
+                    fileMutex.unlock();
                     
                     if (i == queuesCount - 1) {
-                        objectsPool.push_back(curObject);
+                        threads[i] = thread(&Conveyor::doObjectParallelWork, this, curObject, ref(objectsPool), i, ref(mutexes[i + 1]));
                     }
                     else {
-                        queues[i + 1].push(curObject);
+                        threads[i] = thread(&Conveyor::doObjectParallelWork, this, curObject, ref(queues[i + 1]), i, ref(mutexes[i + 1]));
                     }
                 }
             }
         }
+        
+        for (int i = 0; i < queuesCount; ++i) {
+            if (threads[i].joinable()) {
+                threads[i].join();
+            }
+        }
+        
+        resTimeFile.close();
     }
 };
 
@@ -201,19 +170,17 @@ int main(int argc, const char * argv[]) {
             cout << "Input count of elements: ";
             cin >> elementsCount;
             
-            LinearConveyor conveyorLR(elementsCount, 3, 10);
+            Conveyor conveyor(elementsCount, 3, 10);
             
             auto begin = std::chrono::steady_clock::now();
-            conveyorLR.execute();
+            conveyor.executeLinear();
             auto end = std::chrono::steady_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds> (end - begin);
             
             cout << "Linear conveyor" << ", time: " << duration.count() << " milliseconds" <<  endl;
             
-            Conveyor conveyor(elementsCount, 3, 10);
-            
             begin = std::chrono::steady_clock::now();
-            conveyor.execute();
+            conveyor.executeParallel();
             end = std::chrono::steady_clock::now();
             duration = std::chrono::duration_cast<std::chrono::milliseconds> (end - begin);
             
