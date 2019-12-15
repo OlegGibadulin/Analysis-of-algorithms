@@ -23,6 +23,8 @@ struct Object {
     size_t number;
 };
 
+// vector <vector <int> > objectTimeStayingAtQueue(3);
+
 
 class Conveyor {
 private:
@@ -93,6 +95,8 @@ private:
         fileMutex.lock();
         resTimeFile << "Object #" << curObject.number <<  " from Queue #" << queueNum << ": STOP -  " << end << endl;
         fileMutex.unlock();
+        
+        // objectTimeStayingAtQueue[queueNum][objectTimeStayingAtQueue.size() - 1] -= end;
     }
     
 public:
@@ -136,6 +140,8 @@ public:
                     fileMutex.lock();
                     resTimeFile << "Object #" << curObject.number <<  " from Queue #" << i << ": START - " << start << endl;
                     fileMutex.unlock();
+                    
+                    // objectTimeStayingAtQueue[i].push_back(start);
                     
                     if (i == queuesCount - 1) {
                         threads[i] = thread(&Conveyor::doObjectParallelWork, this, curObject, ref(objectsPool), i, ref(mutexes[i + 1]));
@@ -186,10 +192,41 @@ int main(int argc, const char * argv[]) {
             
             cout << "Parallel conveyor" << ", time: " << duration.count() << " milliseconds" <<  endl;
             
+            /*for (int i = 0; i < 3; ++i) {
+                int sum = 0;
+                for (int j = 0; j < elementsCount; ++j) {
+                    sum += objectTimeStayingAtQueue[i][j];
+                }
+                
+                cout << sum / elementsCount << endl;
+            }*/
+            
             cout << endl;
         }
         else if (key == 2) {
-            ;
+            ofstream tests;
+            tests.open("tests.txt");
+            for (int elementsCount = 100; elementsCount < 1100; elementsCount += 100) {
+                Conveyor conveyor(elementsCount, 3, 5);
+                
+                auto begin = std::chrono::steady_clock::now();
+                conveyor.executeLinear();
+                auto end = std::chrono::steady_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::milliseconds> (end - begin);
+                
+                tests << elementsCount << "&" << duration.count() << "&";
+                
+                begin = std::chrono::steady_clock::now();
+                conveyor.executeParallel();
+                end = std::chrono::steady_clock::now();
+                duration = std::chrono::duration_cast<std::chrono::milliseconds> (end - begin);
+                
+                tests << duration.count() << "\\\\" << endl;
+                
+                cout << endl;
+            }
+            
+            tests.close();
         }
         else if (key == 0) {
             break;
