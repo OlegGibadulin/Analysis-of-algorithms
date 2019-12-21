@@ -76,7 +76,7 @@ void getSlide(vector <int>  &slide, const string &pattern) {
     }
     
     for (int i = 0; i < pattern.size() - 1; ++i) {
-        slide[pattern[i]] = pattern.size() - i - 1;
+        slide[pattern[i]] = i;
     }
 }
 
@@ -93,30 +93,28 @@ vector <int> BM(const string &s, const string &pattern) {
     int sLen = s.size();
     int pLen = pattern.size();
     int sInd = 0;
-    
+
     while (sInd < sLen - (pLen - 1)) {
         int pInd = pLen - 1;
-        
-//        if (pattern[pInd] != s[sInd + pInd]) {
-//            countBM += 1;
-//        }
-        
-        for (;pInd >= 0 && pattern[pInd] == s[sInd + pInd]; --pInd) {
+
+        for (;pattern[pInd] == s[sInd + pInd]; --pInd) {
             if (pInd == 0) {
                 mathesIndexes.push_back(sInd);
+                return mathesIndexes;
             }
-//            countBM += 1;
         }
-        
-        sInd += slide[s[sInd + pInd]];
+
+        sInd += slide[pLen - pInd - 1];
     }
     
     return mathesIndexes;
 }
 
 int main(int argc, const char * argv[]) {
-    string s1 = "abcerere";s
+    string s1 = "";
     string s2 = "ere";
+    cin >> s1;
+    cin >> s2;
     vector <int> mathesIndexes = KMP(s1, s2);
     
     cout << "KMP" << endl;
