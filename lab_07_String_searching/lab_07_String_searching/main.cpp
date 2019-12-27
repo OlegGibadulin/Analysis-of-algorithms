@@ -76,7 +76,7 @@ void getSlide(vector <int>  &slide, const string &pattern) {
     }
     
     for (int i = 0; i < pattern.size() - 1; ++i) {
-        slide[pattern[i]] = i;
+        slide[pattern[i]] = pattern.size() - 1 - i;
     }
 }
 
@@ -100,21 +100,21 @@ vector <int> BM(const string &s, const string &pattern) {
         for (;pattern[pInd] == s[sInd + pInd]; --pInd) {
             if (pInd == 0) {
                 mathesIndexes.push_back(sInd);
-                return mathesIndexes;
+                break;
             }
         }
-
-        sInd += slide[pLen - pInd - 1];
+        
+        sInd += slide[s[sInd + pInd]];
     }
     
     return mathesIndexes;
 }
 
 int main(int argc, const char * argv[]) {
-    string s1 = "";
-    string s2 = "ere";
-    cin >> s1;
-    cin >> s2;
+    string s1 = "olololloollo";
+    string s2 = "oll";
+    // cin >> s1;
+    // cin >> s2;
     vector <int> mathesIndexes = KMP(s1, s2);
     
     cout << "KMP" << endl;
@@ -130,6 +130,8 @@ int main(int argc, const char * argv[]) {
     }
     
     mathesIndexes = BM(s1, s2);
+    
+//    mathesIndexes = bmSearch(s1, s2);
     
     cout << "BM" << endl;
     if (mathesIndexes.empty()) {
